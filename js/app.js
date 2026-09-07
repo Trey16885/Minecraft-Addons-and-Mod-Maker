@@ -33,8 +33,24 @@ function setStatus(el, text, kind = '') {
 const tunnelInput = $('#tunnel');
 const resolvedEl = $('#resolved');
 
+/** The tunnel service currently selected (Serveo or localhost.run). */
+function tunnelService() {
+  const key = document.querySelector('.service.selected')?.dataset.service;
+  return TUNNEL_SERVICES[key] || TUNNEL_SERVICES.serveo;
+}
+
+document.querySelectorAll('.service').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.service').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    tunnelInput.placeholder = 'e.g. ' + tunnelService().example;
+    Store.write({ service: btn.dataset.service });
+    refreshResolved();
+  });
+});
+
 function refreshResolved() {
-  const base = resolveBaseUrl(tunnelInput.value);
+  const base = resolveBaseUrl(tunnelInput.value, tunnelService().host);
   if (!tunnelInput.value.trim()) {
     resolvedEl.textContent = '';
     resolvedEl.className = 'resolved';
@@ -59,8 +75,9 @@ tunnelInput.addEventListener('keydown', e => {
 
 async function connect() {
   const statusEl = $('#connect-status');
-  const base = resolveBaseUrl(tunnelInput.value);
-  if (!base) return setStatus(statusEl, 'Enter your Serveo URL first.', 'err');
+  const service = tunnelService();
+  const base = resolveBaseUrl(tunnelInput.value, service.host);
+  if (!base) return setStatus(statusEl, 'Enter your tunnel URL first.', 'err');
 
   const client = new ProxyClient({
     baseUrl: base,
@@ -90,7 +107,7 @@ async function connect() {
     $('#setup-endpoint').textContent = base;
     show('screen-setup');
   } catch (err) {
-    setStatus(statusEl, describeNetworkError(err, base), 'err');
+    setStatus(statusEl, describeNetworkError(err, base, service), 'err');
   } finally {
     $('#btn-connect').disabled = false;
   }
@@ -278,7 +295,7 @@ async function runTurn() {
       notice('Stopped.');
     } else {
       bodyEl.closest('.msg').remove();
-      notice(describeNetworkError(err, state.client.baseUrl), true);
+      notice(describeNetworkError(err, state.client.baseUrl, tunnelService()), true);
     }
     return;
   } finally {
@@ -561,6 +578,11 @@ PyRunner.setStatusHandler(text => {
 /* ── restore saved settings ────────────────────────────────────────── */
 (function restore() {
   const saved = Store.read();
+  if (saved.service && TUNNEL_SERVICES[saved.service]) {
+    document.querySelectorAll('.service').forEach(b =>
+      b.classList.toggle('selected', b.dataset.service === saved.service));
+  }
+  tunnelInput.placeholder = 'e.g. ' + tunnelService().example;
   if (saved.tunnel) tunnelInput.value = saved.tunnel;
   if (saved.token) $('#token').value = saved.token;
   if (saved.provider) $('#provider').value = saved.provider;

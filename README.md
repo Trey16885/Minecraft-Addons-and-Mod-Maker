@@ -137,10 +137,61 @@ grep -o 'https://[^ ]*serveo.net' ~/serveo.log
 
 **The URL changes on every reconnect.** Serveo assigns a random subdomain each time, so an unattended reconnect silently hands you a new address. Re-run the `grep` above to find the current one, or watch it live with `tail -f ~/serveo.log`.
 
+## 7b. localhost.run tunnel (alternative)
+
+Serveo goes down fairly often. `localhost.run` is a drop-in replacement that
+needs no account — the `nokey@` user is exactly that, an anonymous session.
+
+```bash
+AUTOSSH_GATETIME=0 autossh -M 0 -T \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  -o ExitOnForwardFailure=yes \
+  -o StrictHostKeyChecking=accept-new \
+  -R 80:127.0.0.1:8000 nokey@localhost.run
+```
+
+Same flags as the Serveo command, and they do the same jobs — see section 7.
+Two differences worth noting: `-T` skips allocating a terminal, since this
+connection only carries the forward, and the forward targets `127.0.0.1:8000`
+rather than `localhost:8000`, which sidesteps a stall when the resolver hands
+back an IPv6 `localhost` that ccproxy is not listening on.
+
+It prints a URL ending in **`.lhr.life`**:
+
+```
+** your connection id is xxxxxxxx-xxxx-... **
+https://3f9a2c1b.lhr.life tunneled with tls termination
+```
+
+Backgrounded:
+
+```bash
+export AUTOSSH_GATETIME=0
+nohup autossh -M 0 -T \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  -o ExitOnForwardFailure=yes \
+  -o StrictHostKeyChecking=accept-new \
+  -R 80:127.0.0.1:8000 nokey@localhost.run > ~/lhr.log 2>&1 &
+
+sleep 8
+grep -o 'https://[^ ,]*\.lhr\.life' ~/lhr.log | head -1
+```
+
+(The banner line repeats the URL, hence `head -1`.)
+
+Like Serveo, **the subdomain is random and changes on every reconnect**, so
+re-run that `grep` (or `tail -f ~/lhr.log`) after a drop to get the current
+address. Everything downstream is identical — the same `/claude/v1/...`
+routes, and the app takes either kind of URL.
+
+Stop it the same way: `pkill autossh`.
+
 ## 8. Test it
 
 ```bash
-URL=https://xxxx.serveo.net    # your actual URL
+URL=https://xxxx.serveo.net    # or https://xxxx.lhr.life — your actual URL
 
 curl $URL/health
 curl $URL/claude/v1/models
@@ -208,13 +259,13 @@ Also worth knowing: proxying subscription access sits in a gray area with most p
 | 404 on a model id | Package predates that model |
 | Tunnel dies on screen-off | Missing `termux-wake-lock` |
 | autossh exits immediately | Set `AUTOSSH_GATETIME=0` |
-| Public URL stopped working | Tunnel reconnected with a new subdomain — check `~/serveo.log` |
+| Public URL stopped working | Tunnel reconnected with a new subdomain — check `~/serveo.log` or `~/lhr.log` |
 
 # How we work
 
 ## Accessing Claude
 
-After running all of those commands you will paste the Serveo tunnel link in the input field on the page for the Serveo Link, we will add the `/claude/v1/chat/completions` for you. Select which version you are using, Bedrock or Java. If you are using Java, you are required to tell the version of Java.
+After running all of those commands you will paste your tunnel link in the input field on the page — Serveo or localhost.run, either works — and we will add the `/claude/v1/chat/completions` for you. Select which version you are using, Bedrock or Java. If you are using Java, you are required to tell the version of Java.
 
 Claude will make a Minecraft addon or mod based on what you want.
 
@@ -235,13 +286,18 @@ Then open `http://127.0.0.1:8080` in your Android browser.
 **Or host it.** Because everything is client-side, GitHub Pages works: repo
 Settings → Pages → deploy from the `main` branch. Serving over HTTPS is the
 reason we talk to the tunnel instead of `localhost:8000` — an HTTPS page is not
-allowed to call a plain HTTP address, but it can call your HTTPS tunnel.
+allowed to call a plain HTTP address, but it can call your HTTPS tunnel. Both
+Serveo and localhost.run terminate TLS for you, so either one satisfies that.
 
 ### What happens when you use it
 
-1. **Connect.** Paste the tunnel URL. A bare name like `bright-otter` becomes
-   `https://bright-otter.serveousercontent.com`; a full `https://…serveo.net`
-   URL is used as-is. The page then calls `/claude/v1/models`.
+1. **Connect.** Pick your tunnel service, then paste the URL. A full URL is
+   always used as-is, from either service — the picker only expands a bare
+   name: `bright-otter` becomes `https://bright-otter.serveousercontent.com`
+   under Serveo, and `3f9a2c1b` becomes `https://3f9a2c1b.lhr.life` under
+   localhost.run. A pasted `/claude/v1/…` path or `/health` is trimmed off, so
+   the curl URL from section 8 works too. The page then calls
+   `/claude/v1/models`.
 2. **Pick a model.** The dropdown is filled from that live model list, so it
    always matches what your ccproxy build actually supports.
 3. **Pick your edition.** Bedrock, or Java plus its version. This chooses the
@@ -301,7 +357,7 @@ closing the tab discards them.
 
 | Symptom | Cause |
 |---|---|
-| "Could not reach …" | Tunnel reconnected with a new subdomain — check `~/serveo.log` |
+| "Could not reach …" | Tunnel reconnected with a new subdomain — check `~/serveo.log` or `~/lhr.log` |
 | Fails only in the browser, `curl` works | CORS — ccproxy did not allow the page's origin |
 | 401 with a token set | The token here must match ccproxy's; blank if you set none |
 | "Loading Python runtime" hangs | Pyodide is ~10 MB from a CDN on first run; needs a working connection |

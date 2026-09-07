@@ -1,17 +1,21 @@
-/* api.js — talks to ccproxy through the Serveo tunnel. */
+/* api.js — talks to ccproxy through an SSH tunnel (Serveo or localhost.run). */
 
 /**
  * Turn whatever the user pasted into a base URL.
  *
- *   bright-otter                        -> https://bright-otter.serveousercontent.com
- *   bright-otter.serveo.net             -> https://bright-otter.serveo.net
- *   https://bright-otter.serveo.net/    -> https://bright-otter.serveo.net
- *   https://x.serveo.net/claude/v1/...  -> https://x.serveo.net   (route stripped)
+ *   bright-otter            -> https://bright-otter.<the picked service>
+ *   3f9a2c.lhr.life         -> https://3f9a2c.lhr.life
+ *   https://x.serveo.net/   -> https://x.serveo.net
+ *   https://x.lhr.life/claude/v1/...  -> https://x.lhr.life   (route stripped)
+ *
+ * A host that already carries a dot is used as-is, so a full URL from either
+ * service works no matter which one is selected; `host` only fills in the
+ * domain for the bare-name shortcut.
  *
  * Always forces https: a page served over https cannot call http (mixed
  * content), which is the whole reason we tunnel instead of using localhost.
  */
-function resolveBaseUrl(raw) {
+function resolveBaseUrl(raw, host = TUNNEL_SERVICES.serveo.host) {
   let s = (raw || '').trim();
   if (!s) return null;
 
@@ -22,8 +26,8 @@ function resolveBaseUrl(raw) {
   s = s.replace(/\/(claude|codex|copilot)\/v1(\/.*)?$/i, '');
   s = s.replace(/\/(health|dashboard)$/i, '');
 
-  // Bare subdomain (no dot, no slash) -> serveousercontent.com
-  if (!s.includes('.') && !s.includes('/')) s = `${s}.serveousercontent.com`;
+  // Bare subdomain (no dot, no slash) -> the selected service's domain.
+  if (!s.includes('.') && !s.includes('/')) s = `${s}.${host}`;
 
   let url;
   try { url = new URL('https://' + s); }
@@ -144,7 +148,7 @@ async function httpError(res) {
     401: 'ccproxy rejected the request — run `ccproxy auth login claude` in Termux, or check your auth token here under Advanced.',
     403: 'Forbidden. If you set an auth token in ccproxy, enter it under Advanced.',
     404: 'That route was not found. Check the provider (claude / codex / copilot) under Advanced.',
-    502: 'Serveo reached nothing on port 8000 — is `ccproxy serve --port 8000` still running?',
+    502: 'The tunnel reached nothing on port 8000 — is `ccproxy serve --port 8000` still running?',
     503: 'ccproxy is still booting. Wait for `server_ready` in ~/ccproxy.log and retry.',
   };
   const err = new Error(
@@ -156,14 +160,14 @@ async function httpError(res) {
 }
 
 /** Turn a fetch/network failure into something a phone user can act on. */
-function describeNetworkError(err, baseUrl) {
+function describeNetworkError(err, baseUrl, service = TUNNEL_SERVICES.serveo) {
   if (err?.name === 'AbortError') return 'Cancelled.';
   if (err instanceof TypeError) {
     return [
       `Could not reach ${baseUrl}.`,
       '',
       'Common causes:',
-      '• The Serveo tunnel reconnected and got a new subdomain — check ~/serveo.log.',
+      `• The tunnel reconnected and got a new subdomain — check ${service.log}.`,
       '• ccproxy is not running, or not on port 8000.',
       '• CORS: the browser blocked the response because ccproxy did not allow this origin.',
       '  Opening this page from the same phone over http:// avoids the mixed-content',
