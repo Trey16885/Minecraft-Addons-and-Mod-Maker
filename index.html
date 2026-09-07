@@ -17,29 +17,33 @@
       <div class="brand-block"></div>
       <div>
         <h1>Minecraft Addon &amp; Mod Maker</h1>
-        <p class="sub">Powered by your own ccproxy tunnel</p>
+        <p class="sub">Powered by your own ccproxy</p>
       </div>
     </header>
 
     <div class="card">
-      <h2>1 &middot; Tunnel</h2>
+      <h2>1 &middot; Connection</h2>
       <p class="hint">
-        Paste the URL your tunnel printed in Termux &mdash; we append
-        <code>/claude/v1/&hellip;</code> for you. A full URL from either service
-        always works; the choice below only expands a bare subdomain.
+        Paste the URL your tunnel printed in Termux, or point straight at
+        ccproxy with <b>Direct</b> &mdash; either way we append
+        <code>/claude/v1/&hellip;</code> for you. A full URL always works; the
+        choice below only expands a bare subdomain.
       </p>
 
-      <label>Tunnel service</label>
+      <label>How to reach ccproxy</label>
       <div class="services">
         <button type="button" class="service selected" data-service="serveo">Serveo</button>
         <button type="button" class="service" data-service="lhr">localhost.run</button>
+        <button type="button" class="service" data-service="direct">Direct</button>
       </div>
+      <p id="service-note" class="hint service-note"></p>
 
-      <label for="tunnel">Tunnel URL or subdomain</label>
+      <label for="tunnel" id="tunnel-label">Tunnel URL or subdomain</label>
       <input id="tunnel" type="text" inputmode="url" autocomplete="off"
              autocapitalize="off" spellcheck="false"
              placeholder="e.g. bright-otter  or  https://bright-otter.serveo.net">
       <p id="resolved" class="resolved"></p>
+      <p id="scheme-warning" class="warn hidden"></p>
 
       <details class="advanced">
         <summary>Advanced</summary>
@@ -58,8 +62,8 @@
     </div>
 
     <p class="footnote">
-      Your tunnel URL is stored only in this browser. It is never sent anywhere
-      except to the tunnel itself.
+      Your address and token are stored only in this browser. They are never
+      sent anywhere except to your own ccproxy.
     </p>
   </div>
 </section>
@@ -74,7 +78,7 @@
 
     <div class="card">
       <h2>2 &middot; Model</h2>
-      <p class="hint">Loaded live from <code>/models</code> on your tunnel.</p>
+      <p class="hint">Loaded live from <code>/models</code> on your ccproxy.</p>
       <select id="model" size="1"></select>
       <p id="model-count" class="resolved"></p>
     </div>

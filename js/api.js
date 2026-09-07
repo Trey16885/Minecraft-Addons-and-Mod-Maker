@@ -1,38 +1,66 @@
-/* api.js — talks to ccproxy through an SSH tunnel (Serveo or localhost.run). */
+/* api.js — talks to ccproxy, over an SSH tunnel or straight at 127.0.0.1. */
+
+/** 127.0.0.1, localhost, ::1 — the machine the browser is running on. */
+const LOOPBACK_RE = /^(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|\[::1\])$/i;
+
+/** RFC 1918 space — another device on the same Wi-Fi. */
+const PRIVATE_RE =
+  /^(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/;
+
+const isLocalHost = h => LOOPBACK_RE.test(h) || PRIVATE_RE.test(h);
 
 /**
  * Turn whatever the user pasted into a base URL.
  *
  *   bright-otter            -> https://bright-otter.<the picked service>
  *   3f9a2c.lhr.life         -> https://3f9a2c.lhr.life
- *   https://x.serveo.net/   -> https://x.serveo.net
  *   https://x.lhr.life/claude/v1/...  -> https://x.lhr.life   (route stripped)
+ *   127.0.0.1               -> http://127.0.0.1:8000          (direct)
+ *   192.168.1.5:8000        -> http://192.168.1.5:8000        (direct, LAN)
  *
- * A host that already carries a dot is used as-is, so a full URL from either
- * service works no matter which one is selected; `host` only fills in the
- * domain for the bare-name shortcut.
+ * A host that already carries a dot is used as-is, so a full URL from any
+ * service works no matter which one is selected; the service only fills in
+ * the domain for the bare-name shortcut.
  *
- * Always forces https: a page served over https cannot call http (mixed
- * content), which is the whole reason we tunnel instead of using localhost.
+ * Scheme: https for anything routable, because a page served over https
+ * cannot call plain http — that is the whole reason the tunnels exist. Local
+ * addresses are the exception and stay on http, since ccproxy serves plain
+ * http and browsers treat loopback as trustworthy. An explicitly typed scheme
+ * always wins.
  */
-function resolveBaseUrl(raw, host = TUNNEL_SERVICES.serveo.host) {
+function resolveBaseUrl(raw, service = TUNNEL_SERVICES.serveo) {
   let s = (raw || '').trim();
   if (!s) return null;
 
-  s = s.replace(/^[a-z]+:\/\//i, '');   // drop any scheme, we re-add https
+  const typed = /^https:\/\//i.test(s) ? 'https:'
+              : /^http:\/\//i.test(s) ? 'http:'
+              : null;
+
+  s = s.replace(/^[a-z]+:\/\//i, '');   // drop the scheme, we decide it below
   s = s.replace(/\/+$/, '');            // trailing slashes
 
   // Strip a pasted API path so people can paste the curl URL from the README.
   s = s.replace(/\/(claude|codex|copilot)\/v1(\/.*)?$/i, '');
   s = s.replace(/\/(health|dashboard)$/i, '');
 
-  // Bare subdomain (no dot, no slash) -> the selected service's domain.
-  if (!s.includes('.') && !s.includes('/')) s = `${s}.${host}`;
+  // Bare subdomain (no dot, colon or slash) -> the selected service's domain.
+  // Skipped when pointing straight at a host, where there is no domain to add.
+  if (!service.direct && !/[.:/]/.test(s)) s = `${s}.${service.host}`;
+
+  let probe;
+  try { probe = new URL('http://' + s); }
+  catch { return null; }
+
+  const local = isLocalHost(probe.hostname);
+  if (!local && !probe.hostname.includes('.')) return null;
+
+  const scheme = typed || (local ? 'http:' : 'https:');
+  // ccproxy's default port, so "127.0.0.1" alone is enough to type.
+  const port = probe.port || (local ? String(DEFAULT_PORT) : '');
 
   let url;
-  try { url = new URL('https://' + s); }
+  try { url = new URL(`${scheme}//${probe.hostname}${port ? ':' + port : ''}${probe.pathname}`); }
   catch { return null; }
-  if (!url.hostname.includes('.')) return null;
 
   return url.origin + url.pathname.replace(/\/+$/, '');
 }
@@ -159,20 +187,74 @@ async function httpError(res) {
   return err;
 }
 
+/**
+ * Whether an https page calling this http address is going to have trouble.
+ * This is not a clean yes/no, and it is worth being precise about why.
+ *
+ * Loopback is "potentially trustworthy", so http://127.0.0.1 is exempt from
+ * mixed-content blocking and generally goes through. A private LAN address
+ * gets no such exemption: browsers warn on it, and whether it is actually
+ * refused depends on the browser and on how the page itself is served —
+ * Chrome's Private Network Access rules bite when a *public* origin reaches
+ * into a private one, which is exactly the GitHub-Pages-hosted case.
+ *
+ * So: warn on both, more strongly on the second, and never promise either
+ * way. Returns null when there is nothing to say.
+ */
+function httpFromHttpsIssue(baseUrl) {
+  if (typeof location === 'undefined' || location.protocol !== 'https:') return null;
+  if (!/^http:\/\//i.test(baseUrl || '')) return null;
+
+  let host;
+  try { host = new URL(baseUrl).hostname; } catch { return null; }
+
+  if (LOOPBACK_RE.test(host)) {
+    return {
+      level: 'risky',
+      text: 'This page is on https. Loopback is usually still allowed, but '
+          + 'Private Network Access checks can refuse it. If it fails, open '
+          + 'this page over http from this device.',
+    };
+  }
+  return {
+    level: 'risky-lan',
+    text: 'This page is on https and this is a plain http address on your '
+        + 'network. Browsers restrict that, and a page served from a public '
+        + 'host is likely to be refused. Open this page over http from this '
+        + 'device, or use a tunnel.',
+  };
+}
+
+const mixedContentBlocked = url => !!httpFromHttpsIssue(url);
+
 /** Turn a fetch/network failure into something a phone user can act on. */
 function describeNetworkError(err, baseUrl, service = TUNNEL_SERVICES.serveo) {
   if (err?.name === 'AbortError') return 'Cancelled.';
   if (err instanceof TypeError) {
-    return [
-      `Could not reach ${baseUrl}.`,
-      '',
-      'Common causes:',
-      `• The tunnel reconnected and got a new subdomain — check ${service.log}.`,
-      '• ccproxy is not running, or not on port 8000.',
-      '• CORS: the browser blocked the response because ccproxy did not allow this origin.',
-      '  Opening this page from the same phone over http:// avoids the mixed-content',
-      '  problem but not CORS; if it persists, serve the page from the tunnel too.',
-    ].join('\n');
+    const lines = [`Could not reach ${baseUrl}.`, '', 'Common causes:'];
+
+    const issue = httpFromHttpsIssue(baseUrl);
+    if (issue) {
+      lines.push('• ' + issue.text.replace(/\s+/g, ' '));
+    }
+    if (service.direct) {
+      lines.push(
+        `• ccproxy is not running, or not on port ${DEFAULT_PORT} — check with`,
+        `  curl http://127.0.0.1:${DEFAULT_PORT}/health`,
+        '• On a LAN address: the phone and the other device must be on the same',
+        '  network, and ccproxy must be bound to 0.0.0.0, not just 127.0.0.1.'
+      );
+    } else {
+      lines.push(
+        `• The tunnel reconnected and got a new subdomain — check ${service.log}.`,
+        `• ccproxy is not running, or not on port ${DEFAULT_PORT}.`
+      );
+    }
+    lines.push(
+      '• CORS: the browser blocked the response because ccproxy did not allow',
+      '  this origin. Serving the page from the same address avoids it.'
+    );
+    return lines.join('\n');
   }
   return err?.message || String(err);
 }

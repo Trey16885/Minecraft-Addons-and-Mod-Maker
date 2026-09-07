@@ -4,9 +4,13 @@ const STORE_KEY = 'mcmaker.v1';
 
 const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
 
-/* The SSH tunnel services the README covers. `host` is only used to expand a
- * bare subdomain — a full URL from either one is accepted either way. Both
- * hand out a fresh random subdomain on every reconnect. */
+/* The port ccproxy serves on, per the README. */
+const DEFAULT_PORT = 8000;
+
+/* How to reach ccproxy. The two SSH tunnels the README covers, plus talking
+ * to it directly. `host` only expands a bare subdomain — a full URL is
+ * accepted whichever option is selected. Both tunnels hand out a fresh random
+ * subdomain on every reconnect. */
 const TUNNEL_SERVICES = {
   serveo: {
     label: 'Serveo',
@@ -19,6 +23,13 @@ const TUNNEL_SERVICES = {
     host: 'lhr.life',
     example: '3f9a2c1b  or  https://3f9a2c1b.lhr.life',
     log: '~/lhr.log',
+  },
+  direct: {
+    label: 'Direct',
+    host: `127.0.0.1:${DEFAULT_PORT}`,
+    example: `127.0.0.1:${DEFAULT_PORT}  or  192.168.1.5:${DEFAULT_PORT}`,
+    log: '~/ccproxy.log',
+    direct: true,
   },
 };
 
