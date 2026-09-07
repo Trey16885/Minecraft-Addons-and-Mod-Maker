@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <title>Minecraft Addon &amp; Mod Maker</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=4">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%235b8c3a'/><rect y='9' width='16' height='7' fill='%237a5230'/></svg>">
 </head>
 <body>
@@ -160,10 +160,33 @@
   <div class="drawer-scrim"></div>
 </div>
 
-<script src="js/config.js"></script>
-<script src="js/api.js"></script>
-<script src="js/runner.js"></script>
-<script src="js/packager.js"></script>
-<script src="js/app.js"></script>
+<!-- ?v= is a cache buster. Bump BUILD below and these together whenever a
+     js/ or css/ file changes, so a browser holding an old copy is forced to
+     re-fetch: GitHub Pages caches index.html and the assets separately, and a
+     new page paired with stale scripts fails in confusing ways. -->
+<script src="js/config.js?v=4"></script>
+<script src="js/api.js?v=4"></script>
+<script src="js/runner.js?v=4"></script>
+<script src="js/packager.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
+
+<script>
+// Belt and braces: if the scripts that loaded are not the build this page
+// expects, say so plainly instead of misbehaving in ways nobody can diagnose.
+(function () {
+  var expected = '4';
+  if (typeof BUILD !== 'undefined' && BUILD === expected) return;
+  var bar = document.createElement('div');
+  bar.className = 'stale-bar';
+  bar.textContent = 'This page loaded an out-of-date copy of its scripts. ';
+  var btn = document.createElement('button');
+  btn.textContent = 'Reload';
+  btn.onclick = function () {
+    location.replace(location.pathname + '?cb=' + Date.now());
+  };
+  bar.appendChild(btn);
+  document.body.insertBefore(bar, document.body.firstChild);
+})();
+</script>
 </body>
 </html>

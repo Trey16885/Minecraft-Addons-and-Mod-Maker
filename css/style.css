@@ -493,3 +493,21 @@ button:not(:disabled):active { filter: brightness(.88); }
   .messages { padding: 24px 24px 8px; }
   .composer { padding: 12px 24px calc(12px + env(safe-area-inset-bottom)); }
 }
+
+/* shown only when index.html and the scripts are out of sync */
+.stale-bar {
+  padding: 10px 14px;
+  background: var(--gold);
+  color: #201704;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.stale-bar button {
+  margin-left: 8px;
+  padding: 5px 12px;
+  background: #201704;
+  color: var(--gold);
+  border: none;
+  font-weight: 700;
+}

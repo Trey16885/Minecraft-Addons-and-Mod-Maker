@@ -295,6 +295,27 @@ address, but it can call your HTTPS tunnel. Both Serveo and localhost.run
 terminate TLS for you, so either satisfies that. **Direct will not work from a
 Pages-hosted copy**, for exactly that reason; see below.
 
+### If the page looks wrong after an update
+
+GitHub Pages caches `index.html` and the `js/` and `css/` files separately
+(`max-age=600`), so a browser can end up running a new page against old
+scripts. That fails in confusing ways rather than obviously — buttons that do
+nothing, labels that never change.
+
+Two things guard against it:
+
+- Every asset is loaded with a `?v=` version on it, so a new `index.html`
+  points at URLs the browser has never seen and must re-fetch.
+- The page checks the build the scripts report against the one it expects, and
+  shows a **Reload** bar if they disagree.
+
+**If you edit anything in `js/` or `css/`, bump both:** the `?v=` on the script
+and stylesheet tags at the bottom of `index.html`, and `BUILD` at the top of
+`js/config.js`. They must match. If you forget, the Reload bar will tell you.
+
+To force a refresh by hand, load the page with any query string on the end,
+e.g. `…/index.html?x=1`.
+
 ### Direct, and when it works
 
 **Direct** skips the tunnel and has the page call ccproxy straight on
@@ -413,5 +434,6 @@ closing the tab discards them.
 | "Loading Python runtime" hangs | Pyodide is ~10 MB from a CDN on first run; needs a working connection |
 | Export button greyed out | No files generated yet — ask the AI to build the pack |
 | Nothing runs after a reply | Auto-run is off; use the Run button on the code block |
+| Buttons do nothing / labels never change after an update | Cached old scripts — reload, or load the page with `?x=1` on the end |
 | Page freezes during a run | The AI's code hit an infinite loop — Python runs on the page's main thread. Reload; the workspace is lost, so export often |
 | Stops after 6 rounds | A safety stop on the auto-run loop. Send any message to continue |
