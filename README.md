@@ -342,9 +342,12 @@ into a private network needs the target to opt in, which ccproxy does not do.
 Treat Direct-to-LAN from a hosted copy as unsupported.
 
 The app checks this before you connect and warns you rather than letting it
-fail as an unexplained network error. If you see the warning, serve the page
-over http from the device (the `python -m http.server` command above) or
-switch to a tunnel.
+fail as an unexplained network error. When it does, the button at the bottom of
+the connect card — *"Getting errors because of https? Run the site on your own
+http localhost"* — opens the steps to serve the page yourself, with the
+commands ready to copy and a link straight to the local copy. It hides itself
+when the page is already being served over http, since there is then nothing
+to fix.
 
 Two other things Direct accepts:
 
@@ -427,7 +430,7 @@ closing the tab discards them.
 | Symptom | Cause |
 |---|---|
 | "Could not reach …" | Tunnel reconnected with a new subdomain — check `~/serveo.log` or `~/lhr.log` |
-| Direct fails from a hosted copy | An https page reaching a plain-http private address — serve the page over http, or use a tunnel |
+| Direct fails from a hosted copy | An https page reaching a plain-http private address — tap the "Getting errors because of https?" button for the steps to serve it locally |
 | Direct fails to a LAN IP | ccproxy is bound to loopback only; restart it on `0.0.0.0`, and check both devices are on the same Wi-Fi |
 | Fails only in the browser, `curl` works | CORS — ccproxy did not allow the page's origin |
 | 401 with a token set | The token here must match ccproxy's; blank if you set none |

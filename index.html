@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <title>Minecraft Addon &amp; Mod Maker</title>
-<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/style.css?v=5">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%235b8c3a'/><rect y='9' width='16' height='7' fill='%237a5230'/></svg>">
 </head>
 <body>
@@ -59,6 +59,47 @@
 
       <button id="btn-connect" class="primary">Connect &amp; load models</button>
       <div id="connect-status" class="status"></div>
+
+      <button id="btn-localhost-help" type="button" class="link-btn">
+        Getting errors because of https? Run the site on your own http localhost
+      </button>
+
+      <div id="localhost-help" class="help-panel hidden">
+        <p>
+          This copy is served over https, which limits what it may talk to.
+          Serving the page yourself over plain http from the phone removes that
+          restriction entirely &mdash; and then you can skip the tunnel too.
+        </p>
+
+        <ol class="steps">
+          <li>
+            <span class="step-label">Get the files</span> &mdash; skip if you
+            already cloned the repo.
+            <div class="cmd">
+              <code>pkg install -y git python &amp;&amp; git clone https://github.com/Trey16885/Minecraft-Addons-and-Mod-Maker</code>
+              <button type="button" class="copy" title="Copy">Copy</button>
+            </div>
+          </li>
+          <li>
+            <span class="step-label">Serve them</span> &mdash; in a new Termux
+            session, and leave it running.
+            <div class="cmd">
+              <code>cd ~/Minecraft-Addons-and-Mod-Maker &amp;&amp; python -m http.server 8080</code>
+              <button type="button" class="copy" title="Copy">Copy</button>
+            </div>
+          </li>
+          <li>
+            <span class="step-label">Open the local copy</span> in your browser.
+            <a id="local-link" class="local-link" href="http://127.0.0.1:8080">http://127.0.0.1:8080</a>
+          </li>
+        </ol>
+
+        <p class="help-foot">
+          On that copy, pick <b>Direct</b> &mdash; <code>127.0.0.1:8000</code> is
+          filled in for you and no tunnel is needed. ccproxy still has to be
+          running on port 8000.
+        </p>
+      </div>
     </div>
 
     <p class="footnote">
@@ -164,17 +205,17 @@
      js/ or css/ file changes, so a browser holding an old copy is forced to
      re-fetch: GitHub Pages caches index.html and the assets separately, and a
      new page paired with stale scripts fails in confusing ways. -->
-<script src="js/config.js?v=4"></script>
-<script src="js/api.js?v=4"></script>
-<script src="js/runner.js?v=4"></script>
-<script src="js/packager.js?v=4"></script>
-<script src="js/app.js?v=4"></script>
+<script src="js/config.js?v=5"></script>
+<script src="js/api.js?v=5"></script>
+<script src="js/runner.js?v=5"></script>
+<script src="js/packager.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
 
 <script>
 // Belt and braces: if the scripts that loaded are not the build this page
 // expects, say so plainly instead of misbehaving in ways nobody can diagnose.
 (function () {
-  var expected = '4';
+  var expected = '5';
   if (typeof BUILD !== 'undefined' && BUILD === expected) return;
   var bar = document.createElement('div');
   bar.className = 'stale-bar';
