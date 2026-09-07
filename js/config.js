@@ -4,6 +4,24 @@ const STORE_KEY = 'mcmaker.v1';
 
 const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
 
+/* The SSH tunnel services the README covers. `host` is only used to expand a
+ * bare subdomain — a full URL from either one is accepted either way. Both
+ * hand out a fresh random subdomain on every reconnect. */
+const TUNNEL_SERVICES = {
+  serveo: {
+    label: 'Serveo',
+    host: 'serveousercontent.com',
+    example: 'bright-otter  or  https://bright-otter.serveo.net',
+    log: '~/serveo.log',
+  },
+  lhr: {
+    label: 'localhost.run',
+    host: 'lhr.life',
+    example: '3f9a2c1b  or  https://3f9a2c1b.lhr.life',
+    log: '~/lhr.log',
+  },
+};
+
 /* Where the AI's Python code writes its files. */
 const WORKSPACE = '/workspace';
 

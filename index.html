@@ -22,12 +22,18 @@
     </header>
 
     <div class="card">
-      <h2>1 &middot; Serveo tunnel</h2>
+      <h2>1 &middot; Tunnel</h2>
       <p class="hint">
-        Paste the URL Serveo printed in Termux. A bare subdomain works too &mdash;
-        we build <code>https://&lt;name&gt;.serveousercontent.com</code> and append
-        <code>/claude/v1/&hellip;</code> for you.
+        Paste the URL your tunnel printed in Termux &mdash; we append
+        <code>/claude/v1/&hellip;</code> for you. A full URL from either service
+        always works; the choice below only expands a bare subdomain.
       </p>
+
+      <label>Tunnel service</label>
+      <div class="services">
+        <button type="button" class="service selected" data-service="serveo">Serveo</button>
+        <button type="button" class="service" data-service="lhr">localhost.run</button>
+      </div>
 
       <label for="tunnel">Tunnel URL or subdomain</label>
       <input id="tunnel" type="text" inputmode="url" autocomplete="off"
