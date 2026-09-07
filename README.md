@@ -1,4 +1,5 @@
 # Minecraft-Addons-and-Mod-Maker
+*Note: This is for Termux which is only on Android, You will have to make the mod on an Android phone and send it to your PC or use addons for your Android device.*
 Create Minecraft addons, or mods using AI (Requires Claude Pro, or Max since this uses a Claude Code Proxy)
 
 ## How to get Claude Code Proxy
