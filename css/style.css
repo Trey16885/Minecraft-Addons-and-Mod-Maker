@@ -128,19 +128,38 @@ select { appearance: none; background-image: none; }
 .resolved.ok { color: var(--grass); }
 
 /* tunnel service picker */
-.services { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.services { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .service {
-  padding: 10px 8px;
+  padding: 10px 4px;
   background: var(--bg-sunken);
   border: 1px solid var(--line);
   color: var(--text-dim);
-  font-size: 14px;
+  font-size: 13px;
 }
 .service.selected {
   border-color: var(--grass);
   background: rgba(106,166,63,.12);
   color: var(--text);
   font-weight: 600;
+}
+
+.service-note { margin: 8px 0 0; font-size: 12px; min-height: 1em; }
+.service-note:empty { margin: 0; }
+
+.warn {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  background: rgba(217,164,65,.10);
+  border: 1px solid rgba(217,164,65,.35);
+  color: #f0cd8b;
+}
+.warn.blocked {
+  background: rgba(217,83,79,.10);
+  border-color: rgba(217,83,79,.4);
+  color: #ffb3ae;
 }
 
 .advanced { margin: 16px 0; }

@@ -33,7 +33,7 @@ function setStatus(el, text, kind = '') {
 const tunnelInput = $('#tunnel');
 const resolvedEl = $('#resolved');
 
-/** The tunnel service currently selected (Serveo or localhost.run). */
+/** How the user chose to reach ccproxy: a tunnel, or straight at it. */
 function tunnelService() {
   const key = document.querySelector('.service.selected')?.dataset.service;
   return TUNNEL_SERVICES[key] || TUNNEL_SERVICES.serveo;
@@ -43,14 +43,33 @@ document.querySelectorAll('.service').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.service').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
-    tunnelInput.placeholder = 'e.g. ' + tunnelService().example;
+    applyService();
     Store.write({ service: btn.dataset.service });
-    refreshResolved();
   });
 });
 
+/** Reflect the selected service in the field, and prefill Direct's address. */
+function applyService() {
+  const service = tunnelService();
+  tunnelInput.placeholder = 'e.g. ' + service.example;
+  $('#tunnel-label').textContent = service.direct ? 'Address' : 'Tunnel URL or subdomain';
+
+  // Typing 127.0.0.1:8000 by hand on a phone is a chore; fill it in, but never
+  // over the top of something the user already entered.
+  if (service.direct && !tunnelInput.value.trim()) tunnelInput.value = service.host;
+
+  $('#service-note').textContent = service.direct
+    ? 'No tunnel. Only works when this page is opened from the same device (or '
+      + 'the same Wi-Fi), because ccproxy serves plain http.'
+    : '';
+  refreshResolved();
+}
+
 function refreshResolved() {
-  const base = resolveBaseUrl(tunnelInput.value, tunnelService().host);
+  const base = resolveBaseUrl(tunnelInput.value, tunnelService());
+  const warnEl = $('#scheme-warning');
+  warnEl.classList.add('hidden');
+
   if (!tunnelInput.value.trim()) {
     resolvedEl.textContent = '';
     resolvedEl.className = 'resolved';
@@ -63,6 +82,14 @@ function refreshResolved() {
   }
   resolvedEl.textContent = `-> ${base}/${$('#provider').value}/v1/models`;
   resolvedEl.className = 'resolved ok';
+
+  // Say up front when this page's own origin will not be allowed to call it,
+  // rather than letting it fail as an opaque network error.
+  const issue = httpFromHttpsIssue(base);
+  if (issue) {
+    warnEl.textContent = issue.text;
+    warnEl.className = `warn ${issue.level === 'risky-lan' ? 'blocked' : ''}`;
+  }
 }
 
 tunnelInput.addEventListener('input', refreshResolved);
@@ -76,8 +103,8 @@ tunnelInput.addEventListener('keydown', e => {
 async function connect() {
   const statusEl = $('#connect-status');
   const service = tunnelService();
-  const base = resolveBaseUrl(tunnelInput.value, service.host);
-  if (!base) return setStatus(statusEl, 'Enter your tunnel URL first.', 'err');
+  const base = resolveBaseUrl(tunnelInput.value, service);
+  if (!base) return setStatus(statusEl, 'Enter an address first.', 'err');
 
   const client = new ProxyClient({
     baseUrl: base,
@@ -86,7 +113,7 @@ async function connect() {
   });
 
   $('#btn-connect').disabled = true;
-  setStatus(statusEl, 'Contacting the tunnel...', 'busy');
+  setStatus(statusEl, 'Contacting ccproxy...', 'busy');
 
   try {
     const controller = new AbortController();
@@ -125,7 +152,7 @@ function fillModels() {
     if (m.id === saved) o.selected = true;
     sel.appendChild(o);
   }
-  $('#model-count').textContent = `${state.models.length} models available on this tunnel`;
+  $('#model-count').textContent = `${state.models.length} models available`;
 }
 
 document.querySelectorAll('.edition').forEach(btn => {
@@ -582,8 +609,8 @@ PyRunner.setStatusHandler(text => {
     document.querySelectorAll('.service').forEach(b =>
       b.classList.toggle('selected', b.dataset.service === saved.service));
   }
-  tunnelInput.placeholder = 'e.g. ' + tunnelService().example;
   if (saved.tunnel) tunnelInput.value = saved.tunnel;
+  applyService();
   if (saved.token) $('#token').value = saved.token;
   if (saved.provider) $('#provider').value = saved.provider;
   if (saved.autorun === false) {

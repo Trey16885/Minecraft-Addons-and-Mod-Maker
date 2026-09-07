@@ -238,6 +238,8 @@ pip install --upgrade ccproxy-api
 
 ## Security
 
+**Direct avoids this entirely.** Nothing is exposed off the device, so if you are working on the phone alone, prefer it over a tunnel.
+
 **A Serveo tunnel is public.** Anyone with the URL can send requests that authenticate as you and spend your subscription quota. ccproxy has no auth on its endpoints by default.
 
 Before exposing it:
@@ -281,22 +283,68 @@ cd ~/Minecraft-Addons-and-Mod-Maker
 python -m http.server 8080
 ```
 
-Then open `http://127.0.0.1:8080` in your Android browser.
+Then open `http://127.0.0.1:8080` in your Android browser. Served this way the
+page is on plain http itself, so it can talk to ccproxy directly — **no tunnel
+needed at all.** Pick **Direct** on the connect screen and leave the prefilled
+`127.0.0.1:8000` as-is.
 
 **Or host it.** Because everything is client-side, GitHub Pages works: repo
 Settings → Pages → deploy from the `main` branch. Serving over HTTPS is the
-reason we talk to the tunnel instead of `localhost:8000` — an HTTPS page is not
-allowed to call a plain HTTP address, but it can call your HTTPS tunnel. Both
-Serveo and localhost.run terminate TLS for you, so either one satisfies that.
+reason the tunnels exist — an HTTPS page is not allowed to call a plain HTTP
+address, but it can call your HTTPS tunnel. Both Serveo and localhost.run
+terminate TLS for you, so either satisfies that. **Direct will not work from a
+Pages-hosted copy**, for exactly that reason; see below.
+
+### Direct, and when it works
+
+**Direct** skips the tunnel and has the page call ccproxy straight on
+`127.0.0.1:8000`. It is the simplest setup — one less moving part, no random
+subdomain to re-copy after every reconnect, and nothing exposed to the
+internet. The catch is that ccproxy speaks plain http, and whether a browser
+will allow that depends on where the page itself came from:
+
+| Page served from | Direct to `127.0.0.1` | Direct to a LAN IP |
+|---|---|---|
+| `http://127.0.0.1:8080` (Termux) | works | works |
+| a `file://` path | works | works |
+| GitHub Pages / any https host | usually works | unreliable |
+
+The rule browsers apply is mixed content: an https page may not fetch plain
+http. Loopback is carved out of that as "potentially trustworthy", so
+`http://127.0.0.1` from an https page does go through — measured, not assumed:
+in Chromium it returns normally with no block. A LAN address like
+`192.168.1.5` gets no such exemption. In testing Chromium still *attempted* it
+and only logged a warning rather than blocking, but that was from a page
+itself served on `127.0.0.1`. From a genuinely public origin such as GitHub
+Pages, Chrome's Private Network Access rules apply — a public page reaching
+into a private network needs the target to opt in, which ccproxy does not do.
+Treat Direct-to-LAN from a hosted copy as unsupported.
+
+The app checks this before you connect and warns you rather than letting it
+fail as an unexplained network error. If you see the warning, serve the page
+over http from the device (the `python -m http.server` command above) or
+switch to a tunnel.
+
+Two other things Direct accepts:
+
+- **A bare address.** `127.0.0.1` is enough — port `8000` is filled in. Type a
+  port explicitly to override it.
+- **Another device on your Wi-Fi.** Put in `192.168.1.5:8000` to drive ccproxy
+  running on a different machine. That needs ccproxy bound to `0.0.0.0`, not
+  just loopback, and the page served over http.
+
+Local addresses are recognised whichever button is selected, so pasting
+`127.0.0.1:8000` while Serveo is highlighted still does the right thing.
 
 ### What happens when you use it
 
-1. **Connect.** Pick your tunnel service, then paste the URL. A full URL is
-   always used as-is, from either service — the picker only expands a bare
-   name: `bright-otter` becomes `https://bright-otter.serveousercontent.com`
-   under Serveo, and `3f9a2c1b` becomes `https://3f9a2c1b.lhr.life` under
-   localhost.run. A pasted `/claude/v1/…` path or `/health` is trimmed off, so
-   the curl URL from section 8 works too. The page then calls
+1. **Connect.** Pick how to reach ccproxy, then give it the address. A full
+   URL is always used as-is whatever is selected — the picker only expands a
+   bare name: `bright-otter` becomes `https://bright-otter.serveousercontent.com`
+   under Serveo, `3f9a2c1b` becomes `https://3f9a2c1b.lhr.life` under
+   localhost.run, and **Direct** prefills `127.0.0.1:8000` and skips the
+   tunnel entirely. A pasted `/claude/v1/…` path or `/health` is trimmed off,
+   so the curl URL from section 8 works too. The page then calls
    `/claude/v1/models`.
 2. **Pick a model.** The dropdown is filled from that live model list, so it
    always matches what your ccproxy build actually supports.
@@ -358,6 +406,8 @@ closing the tab discards them.
 | Symptom | Cause |
 |---|---|
 | "Could not reach …" | Tunnel reconnected with a new subdomain — check `~/serveo.log` or `~/lhr.log` |
+| Direct fails from a hosted copy | An https page reaching a plain-http private address — serve the page over http, or use a tunnel |
+| Direct fails to a LAN IP | ccproxy is bound to loopback only; restart it on `0.0.0.0`, and check both devices are on the same Wi-Fi |
 | Fails only in the browser, `curl` works | CORS — ccproxy did not allow the page's origin |
 | 401 with a token set | The token here must match ccproxy's; blank if you set none |
 | "Loading Python runtime" hangs | Pyodide is ~10 MB from a CDN on first run; needs a working connection |
