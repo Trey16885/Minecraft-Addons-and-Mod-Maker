@@ -212,7 +212,99 @@ Also worth knowing: proxying subscription access sits in a gray area with most p
 # How we work
 
 ## Accessing Claude
- 
-After running all of those command you will paste the serveo tunnel link in the input field on the page for the Serveo Link, we will add the /claude/v1/chat/completions for you. Select with version you are using Bedrock or Java. If you are using Java, you are required to tell the version of Java.
+
+After running all of those commands you will paste the Serveo tunnel link in the input field on the page for the Serveo Link, we will add the `/claude/v1/chat/completions` for you. Select which version you are using, Bedrock or Java. If you are using Java, you are required to tell the version of Java.
 
 Claude will make a Minecraft addon or mod based on what you want.
+
+## The app
+
+The page is plain static HTML/CSS/JS — no build step, no backend. Open
+`index.html` and it does the rest.
+
+**On a phone (Termux), in a third session:**
+
+```bash
+cd ~/Minecraft-Addons-and-Mod-Maker
+python -m http.server 8080
+```
+
+Then open `http://127.0.0.1:8080` in your Android browser.
+
+**Or host it.** Because everything is client-side, GitHub Pages works: repo
+Settings → Pages → deploy from the `main` branch. Serving over HTTPS is the
+reason we talk to the tunnel instead of `localhost:8000` — an HTTPS page is not
+allowed to call a plain HTTP address, but it can call your HTTPS tunnel.
+
+### What happens when you use it
+
+1. **Connect.** Paste the tunnel URL. A bare name like `bright-otter` becomes
+   `https://bright-otter.serveousercontent.com`; a full `https://…serveo.net`
+   URL is used as-is. The page then calls `/claude/v1/models`.
+2. **Pick a model.** The dropdown is filled from that live model list, so it
+   always matches what your ccproxy build actually supports.
+3. **Pick your edition.** Bedrock, or Java plus its version. This chooses the
+   system instructions the model is sent, and whether you get a `.mcaddon` or
+   a `.jar`.
+4. **Chat.** Describe the mod. The model replies with ` ```python ` blocks.
+5. **The Python runs in your browser.** Every block is executed in Pyodide with
+   Pillow available, in a workspace that persists across the whole session, so
+   the model can build a pack up over several messages. stdout, stderr and
+   tracebacks are handed straight back to the model, so it sees its own
+   mistakes and fixes them without you copying anything.
+6. **Export.** The Files drawer lists everything generated; Export zips the
+   workspace into `yourpack.mcaddon` (Bedrock) or `yourmod.jar` (Java) and
+   downloads it.
+
+### Installing what you built
+
+- **Bedrock:** open the downloaded `.mcaddon` with Minecraft. On Android, tap
+  it in your file manager and choose Minecraft. The packs then appear under
+  Settings → Storage → Behaviour/Resource packs, and you activate them per
+  world.
+- **Java:** drop the `.jar` in `.minecraft/mods` with Fabric or Forge
+  installed. Note the limitation below.
+
+### The Java caveat, stated plainly
+
+A real Java code mod is compiled from `.java` source by Gradle. Pyodide cannot
+run `javac`, so nothing in this browser can compile Java. What that means:
+
+- Mods that are **data- and resource-driven** (recipes, loot tables, tags,
+  models, textures, datapack-style content with a `fabric.mod.json`) package
+  into a working `.jar` here and load fine.
+- Mods that need **actual Java code** will come out as source. The app warns
+  you when it sees `.java` files without `.class` files, and the **Download raw
+  .zip** button gives you the project to build with Gradle on a PC.
+
+Bedrock has no such limitation — addons are JSON and scripts all the way down,
+so `.mcaddon` output is complete and ready to play.
+
+### Settings and privacy
+
+Your tunnel URL, auth token, model and edition are kept in this browser's
+`localStorage` and are sent nowhere but your own tunnel. Generated files live
+only in the page's memory until you export them, and clearing the workspace or
+closing the tab discards them.
+
+### Menu options
+
+| Option | What it does |
+|---|---|
+| New chat | Clears the conversation. Generated files are kept. |
+| Change model / edition | Back to the setup screen. |
+| Auto-run Python | On by default. Off gives every code block a manual **Run** button. |
+| Clear generated files | Empties the workspace so the next pack starts clean. |
+
+### App troubleshooting
+
+| Symptom | Cause |
+|---|---|
+| "Could not reach …" | Tunnel reconnected with a new subdomain — check `~/serveo.log` |
+| Fails only in the browser, `curl` works | CORS — ccproxy did not allow the page's origin |
+| 401 with a token set | The token here must match ccproxy's; blank if you set none |
+| "Loading Python runtime" hangs | Pyodide is ~10 MB from a CDN on first run; needs a working connection |
+| Export button greyed out | No files generated yet — ask the AI to build the pack |
+| Nothing runs after a reply | Auto-run is off; use the Run button on the code block |
+| Page freezes during a run | The AI's code hit an infinite loop — Python runs on the page's main thread. Reload; the workspace is lost, so export often |
+| Stops after 6 rounds | A safety stop on the auto-run loop. Send any message to continue |

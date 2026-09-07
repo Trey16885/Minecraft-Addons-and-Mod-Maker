@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Minecraft Addon &amp; Mod Maker</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%235b8c3a'/><rect y='9' width='16' height='7' fill='%237a5230'/></svg>">
+</head>
+<body>
+
+<!-- ───────────────────────── STEP 1: CONNECT ───────────────────────── -->
+<section id="screen-connect" class="screen active">
+  <div class="wrap">
+    <header class="brand">
+      <div class="brand-block"></div>
+      <div>
+        <h1>Minecraft Addon &amp; Mod Maker</h1>
+        <p class="sub">Powered by your own ccproxy tunnel</p>
+      </div>
+    </header>
+
+    <div class="card">
+      <h2>1 &middot; Serveo tunnel</h2>
+      <p class="hint">
+        Paste the URL Serveo printed in Termux. A bare subdomain works too &mdash;
+        we build <code>https://&lt;name&gt;.serveousercontent.com</code> and append
+        <code>/claude/v1/&hellip;</code> for you.
+      </p>
+
+      <label for="tunnel">Tunnel URL or subdomain</label>
+      <input id="tunnel" type="text" inputmode="url" autocomplete="off"
+             autocapitalize="off" spellcheck="false"
+             placeholder="e.g. bright-otter  or  https://bright-otter.serveo.net">
+      <p id="resolved" class="resolved"></p>
+
+      <details class="advanced">
+        <summary>Advanced</summary>
+        <label for="token">Auth token <span class="opt">(only if you enabled one in ccproxy)</span></label>
+        <input id="token" type="password" autocomplete="off" placeholder="sent as Authorization: Bearer …">
+        <label for="provider">Provider route</label>
+        <select id="provider">
+          <option value="claude" selected>claude</option>
+          <option value="codex">codex</option>
+          <option value="copilot">copilot</option>
+        </select>
+      </details>
+
+      <button id="btn-connect" class="primary">Connect &amp; load models</button>
+      <div id="connect-status" class="status"></div>
+    </div>
+
+    <p class="footnote">
+      Your tunnel URL is stored only in this browser. It is never sent anywhere
+      except to the tunnel itself.
+    </p>
+  </div>
+</section>
+
+<!-- ───────────────────────── STEP 2: MODEL + EDITION ───────────────────────── -->
+<section id="screen-setup" class="screen">
+  <div class="wrap">
+    <header class="brand small">
+      <div class="brand-block"></div>
+      <div><h1>Choose your setup</h1><p class="sub" id="setup-endpoint"></p></div>
+    </header>
+
+    <div class="card">
+      <h2>2 &middot; Model</h2>
+      <p class="hint">Loaded live from <code>/models</code> on your tunnel.</p>
+      <select id="model" size="1"></select>
+      <p id="model-count" class="resolved"></p>
+    </div>
+
+    <div class="card">
+      <h2>3 &middot; Edition</h2>
+      <div class="editions">
+        <button class="edition" data-edition="bedrock">
+          <span class="edition-name">Bedrock</span>
+          <span class="edition-desc">Phone, console, Windows 10/11.<br>Builds a <code>.mcaddon</code></span>
+        </button>
+        <button class="edition" data-edition="java">
+          <span class="edition-name">Java</span>
+          <span class="edition-desc">PC only.<br>Builds a <code>.jar</code></span>
+        </button>
+      </div>
+
+      <div id="java-version-row" class="hidden">
+        <label for="java-version">Minecraft Java version <span class="req">required</span></label>
+        <input id="java-version" type="text" autocomplete="off" placeholder="e.g. 1.21.4">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btn-back-connect" class="ghost">Back</button>
+      <button id="btn-start" class="primary">Start building</button>
+    </div>
+    <div id="setup-status" class="status"></div>
+  </div>
+</section>
+
+<!-- ───────────────────────── STEP 3: CHAT ───────────────────────── -->
+<section id="screen-chat" class="screen">
+  <header class="topbar">
+    <div class="topbar-info">
+      <strong id="chat-model">—</strong>
+      <span id="chat-edition" class="pill">—</span>
+    </div>
+    <div class="topbar-actions">
+      <button id="btn-files" class="ghost tiny" title="Generated files">Files <span id="file-count" class="badge">0</span></button>
+      <button id="btn-export" class="primary tiny" disabled>Export</button>
+      <button id="btn-menu" class="ghost tiny" title="Menu">&#9776;</button>
+    </div>
+  </header>
+
+  <div id="menu" class="menu hidden">
+    <button id="btn-new-chat">New chat</button>
+    <button id="btn-change-setup">Change model / edition</button>
+    <button id="btn-toggle-autorun">Auto-run Python: <span id="autorun-state">on</span></button>
+    <button id="btn-clear-workspace" class="danger">Clear generated files</button>
+  </div>
+
+  <div id="messages" class="messages"></div>
+
+  <div id="runner-status" class="runner-status hidden"></div>
+
+  <form id="composer" class="composer">
+    <textarea id="input" rows="1" placeholder="Describe the mod you want…"
+              autocomplete="off" autocapitalize="sentences"></textarea>
+    <button id="btn-send" type="submit" class="send" title="Send">&#10148;</button>
+    <button id="btn-stop" type="button" class="stop hidden" title="Stop">&#9632;</button>
+  </form>
+</section>
+
+<!-- ───────────────────────── FILES DRAWER ───────────────────────── -->
+<div id="drawer" class="drawer hidden">
+  <div class="drawer-panel">
+    <header>
+      <h2>Generated files</h2>
+      <button id="btn-close-drawer" class="ghost tiny">Close</button>
+    </header>
+    <p class="hint" id="drawer-hint">Files the AI's Python code wrote into the workspace.</p>
+    <ul id="file-list" class="file-list"></ul>
+    <div class="drawer-actions">
+      <button id="btn-export-2" class="primary" disabled>Export</button>
+      <button id="btn-export-zip" class="ghost" disabled>Download raw .zip</button>
+    </div>
+  </div>
+  <div class="drawer-scrim"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/runner.js"></script>
+<script src="js/packager.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
