@@ -1,5 +1,9 @@
 /* config.js — constants, storage keys, and the system instructions. */
 
+/* Must match the ?v= on the script tags in index.html. Bump both together
+ * when a js/ or css/ file changes. */
+const BUILD = '5';
+
 const STORE_KEY = 'mcmaker.v1';
 
 const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';

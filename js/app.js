@@ -90,6 +90,13 @@ function refreshResolved() {
     warnEl.textContent = issue.text;
     warnEl.className = `warn ${issue.level === 'risky-lan' ? 'blocked' : ''}`;
   }
+  nudgeLocalhostHelp(!!issue);
+}
+
+/** Draw attention to the localhost helper when https is the likely culprit. */
+function nudgeLocalhostHelp(on) {
+  const btn = $('#btn-localhost-help');
+  if (!servedLocally()) btn.classList.toggle('nudge', on);
 }
 
 tunnelInput.addEventListener('input', refreshResolved);
@@ -135,10 +142,82 @@ async function connect() {
     show('screen-setup');
   } catch (err) {
     setStatus(statusEl, describeNetworkError(err, base, service), 'err');
+    // A failure on an https page is the case the helper exists for.
+    if (err instanceof TypeError && location.protocol === 'https:') {
+      nudgeLocalhostHelp(true);
+    }
   } finally {
     $('#btn-connect').disabled = false;
   }
 }
+
+/* ── "run it on your own localhost" helper ─────────────────────────── */
+
+/** True when this page is already being served over plain http from here. */
+function servedLocally() {
+  return location.protocol === 'file:'
+      || (location.protocol === 'http:' && isLocalHost(location.hostname));
+}
+
+$('#btn-localhost-help').addEventListener('click', () => {
+  $('#localhost-help').classList.toggle('hidden');
+});
+
+/* Copy buttons on each command. */
+document.querySelectorAll('.cmd .copy').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const text = btn.parentElement.querySelector('code').textContent.trim();
+    const ok = await copyText(text);
+    btn.textContent = ok ? 'Copied' : 'Select it';
+    btn.classList.toggle('done', ok);
+    if (!ok) selectText(btn.parentElement.querySelector('code'));
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 2000);
+  });
+});
+
+/** Clipboard API where available, with the old execCommand path as a fallback. */
+async function copyText(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* denied or unavailable — fall through */ }
+
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch { return false; }
+}
+
+/** Last resort: highlight it so a long-press can copy by hand. */
+function selectText(el) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+(function setUpLocalhostHelp() {
+  // Nothing to offer if the page is already local — that IS the fix.
+  if (servedLocally()) {
+    $('#btn-localhost-help').classList.add('hidden');
+    return;
+  }
+  // Keep the suggested link on whatever host the user is already using, so
+  // someone on a LAN address is not told to open 127.0.0.1 on the wrong device.
+  const link = $('#local-link');
+  const host = isLocalHost(location.hostname) ? location.hostname : '127.0.0.1';
+  link.href = `http://${host}:8080`;
+  link.textContent = `http://${host}:8080`;
+})();
 
 /* ── step 2: model + edition ───────────────────────────────────────── */
 function fillModels() {
