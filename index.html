@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <title>Minecraft Addon &amp; Mod Maker</title>
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%235b8c3a'/><rect y='9' width='16' height='7' fill='%237a5230'/></svg>">
 </head>
 <body>
@@ -205,17 +205,17 @@
      js/ or css/ file changes, so a browser holding an old copy is forced to
      re-fetch: GitHub Pages caches index.html and the assets separately, and a
      new page paired with stale scripts fails in confusing ways. -->
-<script src="js/config.js?v=5"></script>
-<script src="js/api.js?v=5"></script>
-<script src="js/runner.js?v=5"></script>
-<script src="js/packager.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/api.js?v=6"></script>
+<script src="js/runner.js?v=6"></script>
+<script src="js/packager.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
 
 <script>
 // Belt and braces: if the scripts that loaded are not the build this page
 // expects, say so plainly instead of misbehaving in ways nobody can diagnose.
 (function () {
-  var expected = '5';
+  var expected = '6';
   if (typeof BUILD !== 'undefined' && BUILD === expected) return;
   var bar = document.createElement('div');
   bar.className = 'stale-bar';

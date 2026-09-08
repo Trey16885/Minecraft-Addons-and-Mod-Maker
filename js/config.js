@@ -2,7 +2,7 @@
 
 /* Must match the ?v= on the script tags in index.html. Bump both together
  * when a js/ or css/ file changes. */
-const BUILD = '5';
+const BUILD = '6';
 
 const STORE_KEY = 'mcmaker.v1';
 

@@ -74,14 +74,24 @@ class ProxyClient {
 
   get root() { return `${this.baseUrl}/${this.provider}/v1`; }
 
+  /**
+   * Headers, kept as bare as the request allows.
+   *
+   * Every header beyond the CORS-safelisted ones turns a cross-origin request
+   * into one needing a preflight OPTIONS, and the preflight is where a
+   * misconfigured server fails. So Content-Type goes only on requests that
+   * actually carry a body, and Authorization only when there is a token.
+   */
   headers(extra = {}) {
-    const h = { 'Content-Type': 'application/json', ...extra };
+    const h = { ...extra };
     if (this.token) h['Authorization'] = `Bearer ${this.token}`;
     return h;
   }
 
   /** GET /{provider}/v1/models -> [{id, label}] */
   async listModels(signal) {
+    // No Content-Type: there is no body, and adding one would force a
+    // preflight for nothing.
     const res = await fetch(`${this.root}/models`, {
       method: 'GET',
       headers: this.headers(),
@@ -110,7 +120,7 @@ class ProxyClient {
   async streamChat({ model, messages, signal, onDelta }) {
     const res = await fetch(`${this.root}/chat/completions`, {
       method: 'POST',
-      headers: this.headers(),
+      headers: this.headers({ 'Content-Type': 'application/json' }),
       signal,
       body: JSON.stringify({
         model,
@@ -132,13 +142,15 @@ class ProxyClient {
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
 
-      // SSE frames are separated by a blank line.
-      let split;
-      while ((split = buffer.indexOf('\n\n')) !== -1) {
-        const frame = buffer.slice(0, split);
-        buffer = buffer.slice(split + 2);
+      // SSE frames are separated by a blank line, whose terminator may be LF
+      // or CRLF. Matching only "\n\n" finds nothing at all in a CRLF stream,
+      // so the reply would silently never render.
+      let m;
+      while ((m = /\r?\n\r?\n/.exec(buffer)) !== null) {
+        const frame = buffer.slice(0, m.index);
+        buffer = buffer.slice(m.index + m[0].length);
 
-        for (const line of frame.split('\n')) {
+        for (const line of frame.split(/\r?\n/)) {
           if (!line.startsWith('data:')) continue;
           const data = line.slice(5).trim();
           if (!data || data === '[DONE]') continue;
@@ -159,6 +171,16 @@ class ProxyClient {
     }
     return full;
   }
+}
+
+/** This page's origin, as ccproxy would need to allow it. */
+function pageOrigin() {
+  if (typeof location === 'undefined') return 'https://example.github.io';
+  // file:// pages send "null" as the Origin, which cannot be allowlisted;
+  // point at the local-server route instead, which can be.
+  return location.origin === 'null' || location.protocol === 'file:'
+    ? 'http://127.0.0.1:8080'
+    : location.origin;
 }
 
 /** Build a readable Error from a failed response. */
@@ -251,8 +273,16 @@ function describeNetworkError(err, baseUrl, service = TUNNEL_SERVICES.serveo) {
       );
     }
     lines.push(
-      '• CORS: the browser blocked the response because ccproxy did not allow',
-      '  this origin. Serving the page from the same address avoids it.'
+      '• CORS — the most likely cause, and it needs a change on ccproxy\'s side.',
+      '  Its default allowed origins match nothing a browser actually sends, so',
+      '  a fresh install rejects this page whatever address it is on.',
+      '  Add this to ~/.config/ccproxy/config.toml and restart ccproxy:',
+      '',
+      '      [cors]',
+      `      origins = ["${pageOrigin()}"]`,
+      '',
+      '  A request that works with curl but not here is this, every time:',
+      '  curl does not send an Origin header, so CORS never applies to it.'
     );
     return lines.join('\n');
   }
