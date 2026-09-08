@@ -94,6 +94,67 @@ curl http://127.0.0.1:8000/health
 
 A `"status":"pass"` response means it's live.
 
+## 6b. Allow the page's origin (CORS) — required
+
+**Do this or nothing in the browser will work**, no matter which tunnel you
+use. It is the single most likely reason the app says "Could not reach…" while
+`curl` works fine against the same URL.
+
+A browser sends an `Origin` header and refuses to hand the response to a page
+unless the server names that origin back. `curl` sends no `Origin`, so it is
+never subject to this — which is exactly why the two disagree.
+
+ccproxy's stock allowed origins are:
+
+```
+vscode-file://vscode-app
+http://localhost/*
+http://localhost:*/*
+http://127.0.0.1:*/*
+```
+
+Those `*`s are not wildcards. The underlying CORS middleware compares origins
+by exact string, so every one of those entries except the vscode line matches
+nothing a browser will ever send. **A fresh ccproxy rejects every browser page.**
+
+Add your origin explicitly:
+
+```bash
+cat >> ~/.config/ccproxy/config.toml << 'EOF'
+
+[cors]
+origins = [
+  "https://trey16885.github.io",
+  "http://127.0.0.1:8080",
+  "http://localhost:8080",
+]
+EOF
+```
+
+Use whichever apply — the first if you use the hosted page, the others if you
+serve it yourself over http. The app prints the exact line to add, with your
+current origin already filled in, when a request fails this way.
+
+Then restart ccproxy:
+
+```bash
+kill $(cat ~/ccproxy.pid)
+source ~/ccproxy/bin/activate
+termux-wake-lock
+nohup ccproxy serve --port 8000 > ~/ccproxy.log 2>&1 &
+echo $! > ~/ccproxy.pid
+```
+
+Check it took, using an `Origin` header the way a browser would:
+
+```bash
+curl -sI -H "Origin: https://trey16885.github.io" \
+  http://127.0.0.1:8000/claude/v1/models | grep -i access-control-allow-origin
+```
+
+An `access-control-allow-origin` line means it is set up. No line means the
+origin is still not allowed, and the browser will refuse the response.
+
 ## 7. Serveo tunnel (autossh)
 
 In a second Termux session (swipe from the left edge → New session):
@@ -432,7 +493,7 @@ closing the tab discards them.
 | "Could not reach …" | Tunnel reconnected with a new subdomain — check `~/serveo.log` or `~/lhr.log` |
 | Direct fails from a hosted copy | An https page reaching a plain-http private address — tap the "Getting errors because of https?" button for the steps to serve it locally |
 | Direct fails to a LAN IP | ccproxy is bound to loopback only; restart it on `0.0.0.0`, and check both devices are on the same Wi-Fi |
-| Fails only in the browser, `curl` works | CORS — ccproxy did not allow the page's origin |
+| Fails only in the browser, `curl` works | CORS — add the origin under `[cors]`, see section 6b. `curl` sends no `Origin`, so it never hits this |
 | 401 with a token set | The token here must match ccproxy's; blank if you set none |
 | "Loading Python runtime" hangs | Pyodide is ~10 MB from a CDN on first run; needs a working connection |
 | Export button greyed out | No files generated yet — ask the AI to build the pack |
